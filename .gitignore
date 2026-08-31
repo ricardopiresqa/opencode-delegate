@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# local delegation state
+.opencode-delegate/
+cooldown.json
+.delegate-cooldown.json
+
+# opencode writes plugin logs into the cwd
+.logs/
+
+# editor / OS
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

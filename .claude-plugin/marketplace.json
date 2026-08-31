@@ -1,0 +1,15 @@
+{
+  "name": "opencode-delegate",
+  "owner": { "name": "ricardopiresqa" },
+  "metadata": {
+    "description": "Token-saving delegation for Claude Code: offload bulk, low-complexity work to free opencode models.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "opencode-delegate",
+      "source": "./",
+      "description": "MCP tool + slash command + doctrine skill that route low-complexity tasks to free models from OpenCode Zen, OpenKilo, Cline and Pi, with automatic fallback and cooldown."
+    }
+  ]
+}

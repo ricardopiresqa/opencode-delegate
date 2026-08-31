@@ -1,0 +1,24 @@
+{
+  "name": "opencode-delegate",
+  "version": "0.1.0",
+  "description": "Delegate low-complexity Claude Code work to FREE models from OpenCode Zen, OpenKilo, Cline and Pi (via the opencode CLI), with automatic fallback and cooldown, to conserve Claude tokens.",
+  "author": { "name": "ricardopiresqa" },
+  "homepage": "https://github.com/ricardopiresqa/opencode-delegate",
+  "repository": "https://github.com/ricardopiresqa/opencode-delegate",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "mcp",
+    "opencode",
+    "delegation",
+    "free-models",
+    "token-saving",
+    "orchestration"
+  ],
+  "mcpServers": {
+    "opencode-delegate": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "// note": "Use this ONLY if you are not installing the Claude Code plugin. Copy to your project as .mcp.json, or merge the mcpServers block into ~/.claude.json. Replace the path with the absolute path to this repo. Windows: if `python3` is not on PATH, change command to `python`.",
+  "mcpServers": {
+    "opencode-delegate": {
+      "command": "python3",
+      "args": ["/ABSOLUTE/PATH/TO/opencode-delegate/mcp/server.py"]
+    }
+  }
+}

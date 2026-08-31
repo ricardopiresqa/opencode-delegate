@@ -1,0 +1,30 @@
+{
+  // ---------------------------------------------------------------------------
+  // ILLUSTRATIVE opencode config showing the four free-model provider groups
+  // that opencode-delegate knows about.
+  //
+  // This file ships NO accounts and NO working credentials. Each provider is a
+  // separate opencode plugin with its own setup and auth — follow its README.
+  // opencode-delegate only knows how to *call* these models once you have them.
+  // ---------------------------------------------------------------------------
+  "$schema": "https://opencode.ai/config.json",
+
+  "plugin": [
+    // group "openkilo"  (prefix openkilo/)
+    "openkilo",
+
+    // group "cline"  (prefix cline/) — also needs:  cline auth
+    "cline-free",
+
+    // group "pi"  (prefix pi-free/) — free models over NVIDIA NIM
+    "pi-free-provider"
+  ]
+
+  // group "zen"  (prefix opencode/) — OpenCode Zen native models.
+  // No plugin entry needed; just authenticate:
+  //     opencode auth login      → choose "OpenCode"
+  //
+  // Then verify what actually answers for you:
+  //     opencode models
+  //     opencode run -m opencode/big-pickle --format json "reply only: ok"
+}
