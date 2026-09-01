@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import core  # noqa: E402
 
 SERVER_NAME = "opencode-delegate"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 PROTOCOL = "2024-11-05"
 
 CATALOG_FILE = (
@@ -32,13 +32,15 @@ TOOLS = [
     {
         "name": "delegate",
         "description": (
-            "Run a low-complexity task on a FREE model from an opencode provider "
-            "group, with automatic in-group fallback and cooldown. The model "
-            "computation costs no Claude tokens. Good for classification, triage, "
-            "short summaries, field extraction, mechanical reformatting, "
-            "boilerplate, and trivial lookups — especially at volume. Do NOT use "
-            "for architecture, security, or risk judgement, deep reasoning, or "
-            "anything with a side effect."
+            "Run a task on a FREE model from an opencode provider group, with "
+            "automatic in-group fallback and cooldown. The model computation costs "
+            "no Claude tokens. Good for classification, triage, short summaries, "
+            "field extraction, mechanical reformatting, boilerplate, and trivial "
+            "lookups — especially at volume. With apply=true the model runs in "
+            "BUILD mode (--auto) and may EDIT FILES in cwd directly; use that only "
+            "for a mechanical, well-scoped change, and review the diff after. Do "
+            "NOT delegate architecture, security, or risk judgement, or deep "
+            "reasoning, in either mode."
         ),
         "inputSchema": {
             "type": "object",
@@ -65,8 +67,26 @@ TOOLS = [
                 "timeout_s": {
                     "type": "integer",
                     "minimum": 20,
-                    "maximum": 280,
-                    "description": "Per-attempt timeout in seconds (default 100).",
+                    "maximum": 600,
+                    "description": (
+                        "Per-attempt timeout in seconds (default 100 consult, "
+                        "240 when apply=true)."
+                    ),
+                },
+                "apply": {
+                    "type": "boolean",
+                    "description": (
+                        "BUILD mode: run the model with --auto so it edits files "
+                        "in cwd directly. Default false (read-only relay). Only for "
+                        "a mechanical, well-scoped change; review the diff after."
+                    ),
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": (
+                        "Working directory for apply mode (the repo/subtree the "
+                        "model may edit). Defaults to the server's current dir."
+                    ),
                 },
             },
             "required": ["group", "prompt"],
@@ -109,15 +129,23 @@ def _text_result(text: str, is_error: bool = False) -> dict:
 
 
 def tool_delegate(args: dict) -> dict:
+    apply = bool(args.get("apply", False))
     r = core.delegate(
         args.get("group", ""),
         args.get("prompt", ""),
         args.get("preferred_model", ""),
-        args.get("timeout_s", core.DEFAULT_TIMEOUT),
+        args.get("timeout_s", core.APPLY_TIMEOUT if apply else core.DEFAULT_TIMEOUT),
+        apply=apply,
+        cwd=args.get("cwd", ""),
     )
     if r.get("ok"):
         foot = f">>> answered by {r['model']} (attempt {r['attempt']})"
         notes = []
+        if r.get("applied"):
+            notes.append(
+                f"BUILD mode: files may have been modified in {r.get('cwd')} "
+                f"— review the diff (e.g. `git -C {r.get('cwd')} status`)."
+            )
         for s in r.get("skipped", []):
             notes.append(f"skipped (cooling ~{s['cooling_minutes']}m): {s['model']}")
         for f in r.get("failures", []):

@@ -6,7 +6,9 @@ description: >-
   is bulk classification / triage, short summarisation, field extraction,
   mechanical reformatting or syntax conversion, repetitive boilerplate or
   fixtures, or trivial textual lookups — especially at volume (3+ similar
-  items).
+  items); when a job splits into several independent activities that each need
+  an agent (delegate them in parallel instead of spawning Claude subagents);
+  or for a mechanical, well-scoped file edit (BUILD mode, apply=true).
 ---
 
 # Delegation doctrine
@@ -32,8 +34,32 @@ would otherwise spend real reasoning tokens on.
 - final architectural decisions, risk assessment, security judgement
 - anything needing deep multi-step reasoning you would not trust a small
   model with
-- applying diffs or any action with a side effect (file writes, commits)
+- commits, pushes, deploys, or any outward-facing / irreversible action
 - a task smaller than the hand-off cost — a word you already know
+
+(Mechanical *file edits* can be delegated in BUILD mode — see below — but the
+plan, the review, and anything non-mechanical stay with you.)
+
+## Parallel multi-activity work — delegate, don't fan out Claude subagents
+
+When a job splits into several **independent** activities that each need an
+agent — a batch of files to classify, several modules to summarise, a set of
+fixtures to generate, per-directory mechanical refactors — issue one
+`delegate` call per activity (they run as separate `opencode` subprocesses at
+$0) instead of spawning Claude subagents for them. Reserve Claude subagents for
+the parts that actually need Claude's reasoning (architecture, security, risk,
+ambiguous judgement). Collect the results and integrate them yourself.
+
+## BUILD mode — `apply: true`
+
+`delegate` with `apply: true` (and `cwd`) runs the winning free model with
+`--auto`, so it **edits files in `cwd` directly** and returns a summary. Use it
+only for a **mechanical, well-scoped** change you could describe precisely:
+rename a symbol across a package, add a boilerplate test file, apply a
+find-and-replace, scaffold a component from a template. After it returns,
+**review the diff** (`git -C <cwd> diff`) and run the project's build/test/lint
+— the change is not done until that passes. Keep architecture, security-relevant
+code, and anything requiring judgement in your own hands.
 
 ## Choosing a group
 

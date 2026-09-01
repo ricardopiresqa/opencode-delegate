@@ -12,6 +12,10 @@ that calls the tool does.
 Use it for the work that does not need Claude's full ability: bulk
 classification/triage, short summaries, field extraction, mechanical
 reformatting, boilerplate, fixtures, trivial lookups — especially at volume.
+When a job splits into several independent activities, delegate them in
+parallel instead of spawning Claude subagents. With `apply: true` (BUILD mode)
+the free model edits files in a working directory directly, for mechanical,
+well-scoped changes you then review.
 
 ---
 
@@ -149,7 +153,9 @@ Ask Claude to "use the `delegate` tool", or in an SDK/other MCP client call:
     "group": "pi",
     "prompt": "Extract {name, date, total} as JSON from:\n<text>",
     "preferred_model": "openai/gpt-oss-20b",   // optional
-    "timeout_s": 100                            // optional, 20–280
+    "timeout_s": 100,                           // optional, 20–600
+    "apply": false,                             // optional, BUILD mode (see below)
+    "cwd": ""                                   // optional, working dir for apply
   }
 }
 ```
@@ -157,6 +163,25 @@ Ask Claude to "use the `delegate` tool", or in an SDK/other MCP client call:
 Returns the answer, then `>>> answered by <group>/<model> (attempt N)` and any
 fallback/cooldown notes. On a fully exhausted group it returns an error listing
 what was tried.
+
+### BUILD mode — `apply: true`
+
+`apply: true` runs the winning model with `opencode run --auto` in `cwd`, so it
+**edits files there directly** and returns a summary; the tool result flags that
+the tree changed. Use it only for a mechanical, well-scoped change (rename a
+symbol across a package, scaffold a test file, apply a find-and-replace). After
+it returns, review `git -C <cwd> diff` and run the project's build/test/lint —
+the change is not done until that passes. Timeout defaults to 240 s in this
+mode. Keep architecture, security-relevant code, and anything needing judgement
+in Claude's hands.
+
+### Parallel activities
+
+When a task fans out into independent pieces that each need an agent (classify
+a batch of files, summarise several modules, scaffold a set of fixtures), issue
+one `delegate` call per piece — they run as separate `$0` `opencode`
+subprocesses — instead of spawning Claude subagents for them. The bundled
+`delegation-doctrine` skill states this as policy.
 
 ### Other tools
 
@@ -166,9 +191,11 @@ what was tried.
 
 ### Optional isolation subagent
 
-`agents/delegate-runner.md` (runs on Haiku) wraps the tool for the rare case
-where a delegated result is large and you want it condensed before it hits the
-main context. For normal use, call the tool directly.
+`agents/delegate-runner.md` (runs on Haiku) wraps the tool for when a delegated
+result is large and you want it condensed before it hits the main context, or
+to keep a BUILD-mode (`apply: true`) run and its diff/build/test verification
+off the orchestrator's turn. For a normal one-shot consult, call the tool
+directly.
 
 ---
 

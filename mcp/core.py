@@ -20,9 +20,10 @@ import tempfile
 import time
 from pathlib import Path
 
-DEFAULT_TIMEOUT = 100          # seconds per model attempt
+DEFAULT_TIMEOUT = 100          # seconds per model attempt (consult mode)
+APPLY_TIMEOUT = 240            # default per-attempt timeout when apply=True
 MIN_TIMEOUT = 20
-MAX_TIMEOUT = 280
+MAX_TIMEOUT = 600
 TRANSIENT_COOLDOWN = 300       # 5 min
 FATAL_COOLDOWN = 24 * 3600     # 24 h
 
@@ -226,13 +227,35 @@ def classify(diag: str) -> int:
     return TRANSIENT_COOLDOWN  # unknown -> treat as transient
 
 
-def run_one(model: str, prompt: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bool, str, str]:
-    """Return (ok, answer_text, diagnostic)."""
+def build_cmd(opencode: str, model: str, prompt: str, apply: bool = False) -> list[str]:
+    """argv for one ``opencode run``.
+
+    consult (default): read-only relay, the text answer is the product.
+    apply=True: add ``--auto`` so the model may edit files in the working directory
+    without a per-tool prompt; the changed tree is the product and the text is a summary.
+    """
+    cmd = [opencode, "run", "-m", model, "--format", "json"]
+    if apply:
+        cmd.append("--auto")
+    cmd.append(prompt)
+    return cmd
+
+
+def run_one(model: str, prompt: str, timeout: int = DEFAULT_TIMEOUT,
+            apply: bool = False, cwd: str = "") -> tuple[bool, str, str]:
+    """Return (ok, answer_text, diagnostic).
+
+    With ``apply=True`` the model runs with ``--auto`` in ``cwd`` and may edit files;
+    success then no longer requires non-empty text (the diff is the result).
+    """
     opencode = resolve_opencode()
+    workdir = cwd or None
+    if workdir and not os.path.isdir(workdir):
+        return False, "", f"cwd does not exist: {workdir}"
     try:
         proc = subprocess.run(
-            [opencode, "run", "-m", model, "--format", "json", prompt],
-            capture_output=True, text=True, timeout=timeout,
+            build_cmd(opencode, model, prompt, apply),
+            capture_output=True, text=True, timeout=timeout, cwd=workdir,
         )
     except subprocess.TimeoutExpired:
         return False, "", f"timeout after {timeout}s"
@@ -240,10 +263,10 @@ def run_one(model: str, prompt: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bo
         return False, "", "opencode CLI not found on PATH (set OPENCODE_DELEGATE_BIN)"
     blob = (proc.stdout or "") + "\n" + (proc.stderr or "")
     text = extract_text(proc.stdout or "")
-    if proc.returncode == 0 and text:
+    if proc.returncode == 0 and (text or apply):
         if re.search(r'"type"\s*:\s*"error"', proc.stdout or ""):
             return False, "", first_error(blob)
-        return True, text, ""
+        return True, text or "(apply mode: no summary text returned; review the working-tree diff)", ""
     return False, "", first_error(blob) or f"exit {proc.returncode}, no text"
 
 
@@ -251,11 +274,16 @@ def run_one(model: str, prompt: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bo
 # public entry point
 # --------------------------------------------------------------------------- #
 def delegate(group: str, prompt: str, preferred: str = "",
-             timeout: int = DEFAULT_TIMEOUT) -> dict:
+             timeout: int = DEFAULT_TIMEOUT, apply: bool = False,
+             cwd: str = "") -> dict:
     """Try the group's models best-first with fallback + cooldown.
 
+    ``apply=True`` runs the winning model with ``--auto`` in ``cwd`` so it can edit
+    files directly (BUILD mode); the return then also carries ``applied`` and ``cwd``.
+    Timeout defaults to ``APPLY_TIMEOUT`` in that mode.
+
     Returns a dict:
-      ok=True  -> group, model, attempt, answer, skipped[], failures[]
+      ok=True  -> group, model, attempt, answer, applied, cwd, skipped[], failures[]
       ok=False -> error, plus (group, tried[], skipped[], failures[]) when
                   the whole group is exhausted.
     """
@@ -266,10 +294,12 @@ def delegate(group: str, prompt: str, preferred: str = "",
     if not (prompt or "").strip():
         return {"ok": False, "error": "empty prompt"}
 
+    apply = bool(apply)
+    default_timeout = APPLY_TIMEOUT if apply else DEFAULT_TIMEOUT
     try:
-        timeout = int(timeout or DEFAULT_TIMEOUT)
+        timeout = int(timeout or default_timeout)
     except (TypeError, ValueError):
-        timeout = DEFAULT_TIMEOUT
+        timeout = default_timeout
     timeout = max(MIN_TIMEOUT, min(MAX_TIMEOUT, timeout))
 
     order = build_order(group, preferred)
@@ -284,11 +314,12 @@ def delegate(group: str, prompt: str, preferred: str = "",
             skipped.append({"model": model, "cooling_minutes": mins})
             continue
         tried.append(model)
-        ok, text, diag = run_one(model, prompt, timeout)
+        ok, text, diag = run_one(model, prompt, timeout, apply=apply, cwd=cwd)
         if ok:
             save_cooldown(cd)
             return {"ok": True, "group": group, "model": model,
                     "attempt": attempt, "answer": text,
+                    "applied": apply, "cwd": cwd or os.getcwd(),
                     "skipped": skipped, "failures": failures}
         secs = classify(diag)
         cd[model] = time.time() + secs

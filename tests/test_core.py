@@ -89,6 +89,35 @@ check(
     core.delegate("zen", "   ")["ok"] is False,
 )
 
+check(
+    "build_cmd consult mode: no --auto, prompt is the last argv",
+    core.build_cmd("opencode", "opencode/big-pickle", "hello")
+    == ["opencode", "run", "-m", "opencode/big-pickle", "--format", "json", "hello"],
+)
+
+check(
+    "build_cmd apply mode: --auto before the prompt",
+    core.build_cmd("opencode", "opencode/big-pickle", "hello", apply=True)
+    == ["opencode", "run", "-m", "opencode/big-pickle", "--format", "json", "--auto", "hello"],
+)
+
+check(
+    "run_one apply mode with a non-existent cwd fails fast without spawning",
+    core.run_one("opencode/big-pickle", "hi", apply=True, cwd="/no/such/dir/xyz")
+    == (False, "", "cwd does not exist: /no/such/dir/xyz"),
+)
+
+check(
+    "delegate still validates group/prompt when apply=True",
+    core.delegate("bogus", "hi", apply=True)["ok"] is False
+    and core.delegate("zen", "  ", apply=True)["ok"] is False,
+)
+
+check(
+    "APPLY_TIMEOUT is defined and within the clamp range",
+    core.MIN_TIMEOUT <= core.APPLY_TIMEOUT <= core.MAX_TIMEOUT,
+)
+
 print()
 if _fails:
     print(f"{_fails} check(s) failed")
