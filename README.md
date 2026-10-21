@@ -4,8 +4,9 @@
 
 A Claude Code plugin that adds one MCP tool, `delegate`, which runs a prompt on
 a free model from an [`opencode`](https://opencode.ai) provider group
-(**OpenCode Zen**, **OpenKilo**, **Cline**, **Pi**), with automatic in-group
-fallback and cooldown. The model computation runs as a local `opencode`
+(**OpenCode Zen**, **OpenKilo**, **Cline**, **Pi**, and optionally **Clixad**
+through a local gateway), with automatic in-group fallback, cooldowns and
+provider-wide pauses. The model computation runs as a local `opencode`
 subprocess and costs **no Claude tokens** — only the short orchestration turn
 that calls the tool does.
 
@@ -43,9 +44,11 @@ Claude Code (orchestrator)
       ▼
 mcp/server.py  ──►  mcp/core.py
                       │  try group models best-first
-                      │  skip cooling models
+                      │  skip cooling / paused / auto-quarantined models
                       │  on transient fail → 5-min cooldown, next model
                       │  on fatal fail     → 24-h cooldown, next model
+                      │  on auth fail      → pause the whole provider (30 min)
+                      │  3 fails in a row  → pause the group (15 min)
                       ▼
               opencode run -m <model> --format json "<prompt>"   (local, $0)
                       ▼
@@ -60,13 +63,16 @@ is nothing to escape and no injection surface.
 
 | group | prefix | provider |
 |---|---|---|
-| `zen` | `opencode/` | OpenCode Zen native models |
-| `openkilo` | `openkilo/` | OpenKilo plugin |
-| `cline` | `cline/` | Cline recommended free models |
+| `zen` (alias `opencode`) | `opencode/` | OpenCode Zen native models |
+| `openkilo` (alias `kilo`) | `openkilo/` | OpenKilo plugin |
+| `cline` | `cline/` | Cline free models |
 | `pi` | `pi-free/` | Pi free models (NVIDIA NIM) |
+| `clixad` *(optional)* | `thoth/thoth/clixad/` | Clixad through a local OpenAI-compatible gateway registered in `opencode` as provider `thoth` |
 
 Curated live lists and per-model guidance: [`skills/delegation-doctrine/model-catalog.md`](skills/delegation-doctrine/model-catalog.md).
-Probed 2026-08-30: **30 / 41** free models live.
+Probed 2026-10-21 (answer "OK" and 17×23−45 correctly): **zen 9/10**, **openkilo
+13/14**, **pi 3/9** (four retired upstream), **clixad 4/4**; **cline 0/6** on that
+day because the Cline login had expired — with a fresh login they answer again.
 
 ---
 
@@ -75,7 +81,7 @@ Probed 2026-08-30: **30 / 41** free models live.
 - **Claude Code** (for the plugin) — or any MCP client (see *Manual install*).
 - **Python 3.8+** on `PATH` as `python3` (Windows: see note below).
 - **[`opencode`](https://opencode.ai) CLI** installed and on `PATH`.
-- At least one provider group configured (below). You do **not** need all four.
+- At least one provider group configured (below). You do **not** need all of them.
 
 ---
 
@@ -112,12 +118,13 @@ skeleton):
 | `openkilo` | add the `openkilo` plugin to your `opencode` config; follow its README |
 | `cline` | add the `cline-free` plugin, then `cline auth` |
 | `pi` | add the `pi-free-provider` plugin; follow its README |
+| `clixad` | optional: run an OpenAI-compatible gateway that serves `clixad/<model>` ids and register it in `opencode` as provider `thoth`. The gateway is checked at `OPENCODE_DELEGATE_GATEWAY_URL` (default `http://127.0.0.1:11435/v1/models`); when it does not answer, the group is skipped in one step |
 
 Confirm what actually answers for you:
 
 ```
 opencode models
-opencode run -m opencode/big-pickle --format json "reply only: ok"
+opencode run -m opencode/nemotron-3-ultra-free --format json "reply only: ok"
 ```
 
 ---
@@ -207,10 +214,22 @@ directly.
   cooldown, try next;
 - **fatal** failure (retired / not supported / needs sign-in / 404 / 410) →
   24-h cooldown, try next;
-- errors only when every model in the group is down or cooling.
+- **auth** failure (401 / 403 / unauthorized) → the whole provider is paused
+  for 30 min: an expired login fails every model the same way, so the next
+  call skips them all in one step instead of paying one failure each;
+- **3 failures in a row** in a group → the group is paused for 15 min;
+- **auto-quarantine** → a model whose last 10 attempts (last 7 days) all
+  failed is skipped; one success releases it;
+- the optional gateway (`clixad`) is checked once (2 s) before its models;
+- a `preferred_model` you name explicitly still runs through pauses and
+  quarantine (your intent wins), but not through its own cooldown;
+- errors only when every model in the group is down, paused or cooling.
 
-State: `~/.opencode-delegate/cooldown.json` — override the directory with
-`OPENCODE_DELEGATE_HOME`. Override the `opencode` binary with
+State lives in `~/.opencode-delegate/` (override with `OPENCODE_DELEGATE_HOME`):
+`cooldown.json` (cooldowns and pauses) and `attempts.jsonl` (one line per
+attempt: model, ok, kind, seconds, and for failures a **safe error code** — the
+HTTP status plus labels from a closed list, never the provider's free-text
+message, which can quote your prompt). Override the `opencode` binary with
 `OPENCODE_DELEGATE_BIN`.
 
 ---

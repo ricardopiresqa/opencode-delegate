@@ -3,9 +3,15 @@
 
 Run:  python3 tests/test_core.py
 """
+import json
+import os
 import sys
+import tempfile
+import time
 from pathlib import Path
 
+# Never touch the real ~/.opencode-delegate (cooldowns, attempts log) from a test.
+os.environ["OPENCODE_DELEGATE_HOME"] = tempfile.mkdtemp(prefix="od-test-")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mcp"))
 import core  # noqa: E402
 
@@ -117,6 +123,56 @@ check(
     "APPLY_TIMEOUT is defined and within the clamp range",
     core.MIN_TIMEOUT <= core.APPLY_TIMEOUT <= core.MAX_TIMEOUT,
 )
+
+check(
+    "aliases: kilo -> openkilo, opencode -> zen",
+    core.resolve_group("Kilo") == "openkilo" and core.resolve_group("opencode") == "zen",
+)
+
+check(
+    "error_code keeps only the HTTP status and closed-list labels, never free text",
+    core.error_code("HTTP 403 Forbidden: rate limit exceeded") == "403 forbidden rate limit"
+    and core.error_code("failed while reviewing my secret plan") == "",
+)
+
+
+def _log(rows: list[dict]) -> str:
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    fd, path = tempfile.mkstemp(suffix=".jsonl")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.writelines(json.dumps({"ts": now, "model": "m", **r}) + "\n" for r in rows)
+    return path
+
+
+_fail = {"ok": False, "kind": "error"}
+check(
+    "auto_quarantine: 10 failures in a row quarantine, 9 do not",
+    "m" in core.auto_quarantine(_log([_fail] * 10)) and "m" not in core.auto_quarantine(_log([_fail] * 9)),
+)
+check(
+    "auto_quarantine: one success releases; launch failures do not count",
+    "m" not in core.auto_quarantine(_log([_fail] * 10 + [{"ok": True, "kind": "ok"}]))
+    and "m" not in core.auto_quarantine(_log([{"ok": False, "kind": "launch"}] * 12)),
+)
+
+# delegate() with run_one / gateway_up stubbed: no CLI, no network.
+_calls: list[str] = []
+_real_run_one, _real_gateway_up = core.run_one, core.gateway_up
+core.run_one = lambda model, prompt, *a, **k: (_calls.append(model) or (False, "", "401 Unauthorized"))
+core.gateway_up = lambda: False
+_r = core.delegate("cline", "hi")
+check(
+    "an auth failure pauses the whole provider: only the first model is called",
+    _calls == [core.GROUPS["cline"][0]] and "provider:cline" in core.load_cooldown()
+    and all("paused_minutes" in s for s in _r["skipped"]),
+)
+_calls.clear()
+_r = core.delegate("clixad", "hi")
+check(
+    "gateway down: the clixad group is skipped without calling any model",
+    _calls == [] and _r["ok"] is False and "provider:thoth" in core.load_cooldown(),
+)
+core.run_one, core.gateway_up = _real_run_one, _real_gateway_up
 
 print()
 if _fails:

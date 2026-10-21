@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3.0 — 2026-10-21
+
+Re-probed catalogue + stop paying for failures we already know about.
+
+Measured on 4 days of real use before this release: 129 of 586 attempts
+succeeded (22 %). Most of the waste was one provider being down (expired
+login, local gateway off) and the runner paying one failed attempt per model,
+on every call, plus models that never once answered.
+
+- **Catalogue re-probed (2026-10-21)** over every model `opencode models`
+  lists for the supported providers (answer `OK` and 17×23−45 correctly):
+  zen 9/10, openkilo 13/14, pi 3/9 (four retired upstream), clixad 4/4,
+  cline 0/6 that day (expired login). `GROUPS` reordered fastest-first;
+  retired/broken models moved to `KNOWN_DEAD`; `model-catalog.md`
+  regenerated from the probe.
+- **New optional group `clixad`** — Clixad models through a local
+  OpenAI-compatible gateway registered in `opencode` as provider `thoth`.
+  The gateway is checked (2 s) before its models; when it is down the group
+  is skipped in one step. URL: `OPENCODE_DELEGATE_GATEWAY_URL`.
+- **Aliases**: `kilo` → `openkilo`, `opencode` → `zen`.
+- **Persisted pauses** (in `cooldown.json`): an auth failure (401 / 403 /
+  unauthorized) pauses the whole provider for 30 min; 3 failures in a row
+  pause the group for 15 min. A `preferred_model` you name explicitly still
+  runs through them.
+- **Auto-quarantine**: a model whose last 10 attempts (7-day window) all
+  failed is skipped until one success.
+- **Attempts log** `~/.opencode-delegate/attempts.jsonl`: model, ok, kind,
+  seconds, and for failures a safe error code (HTTP status + labels from a
+  closed list — never the provider's free text, which can quote the prompt).
+- `.gitignore`: local state, probe outputs, caches and `.env*`.
+- Tests: aliases, safe error code, auto-quarantine, provider pause on auth,
+  gateway-down skip (offline; state isolated in a temp dir).
+
 ## 0.2.0 — 2026-09-01
 
 BUILD mode + parallel-delegation doctrine.

@@ -14,8 +14,8 @@ description: >-
 # Delegation doctrine
 
 `opencode-delegate` exposes an MCP tool, **`mcp__opencode-delegate__delegate`**,
-that runs a prompt on a FREE model from one of four `opencode` provider groups
-(`zen`, `openkilo`, `cline`, `pi`) with automatic in-group fallback and
+that runs a prompt on a FREE model from one of the `opencode` provider groups
+(`zen`, `openkilo` (alias `kilo`), `cline`, `pi`, and the optional `clixad`) with automatic in-group fallback and
 cooldown. The model computation costs **no Claude tokens** — only your
 orchestration turn does. So delegation pays off on *volume* and on work you
 would otherwise spend real reasoning tokens on.
@@ -68,10 +68,10 @@ Any group handles most delegable tasks. Rough guidance:
 | Need | Group | Note |
 |---|---|---|
 | fast generalist — summaries, extraction, rewrite | `openkilo` | largest pool, deepest fallback |
-| code boilerplate / mechanical refactor | `zen` (`laguna-s-2.1-free`) or `openkilo` (`poolside/laguna-s-2.1:free`) | code-tuned |
-| long document to read / ~1M context | `pi` (`moonshotai/kimi-k3`) | large context |
+| code boilerplate / mechanical refactor | `openkilo` (`poolside/laguna-s-2.1:free` or `cohere/north-mini-code:free`) | code-tuned |
+| long document to read | `zen` (`deepseek-v4.1-flash-free`) or `clixad` (`gemini-2.5-flash-lite`) | large context |
 | quick, reasoning-capable, structured output | `pi` (`openai/gpt-oss-20b`) | fastest |
-| batch triage of many short items | `zen` / `openkilo` nemotron `*-lightning` | throughput, higher latency |
+| batch triage of many short items | `zen` / `openkilo` nemotron `*-lightning` | fast (~4 s on 2026-10-21) |
 
 Pass `preferred_model` only when the task clearly suits one; otherwise let the
 runner start from the top of the group.

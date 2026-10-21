@@ -1,7 +1,7 @@
 {
   "name": "opencode-delegate",
-  "version": "0.2.0",
-  "description": "Delegate Claude Code work to FREE models from OpenCode Zen, OpenKilo, Cline and Pi (via the opencode CLI), with automatic fallback and cooldown, to conserve Claude tokens. Consult mode for classification/summaries/lookups; BUILD mode (apply=true) for mechanical, well-scoped file edits.",
+  "version": "0.3.0",
+  "description": "Delegate Claude Code work to FREE models from OpenCode Zen, OpenKilo, Cline, Pi and (optionally) Clixad via the opencode CLI, with automatic fallback, cooldowns, provider-wide pauses and auto-quarantine, to conserve Claude tokens. Consult mode for classification/summaries/lookups; BUILD mode (apply=true) for mechanical, well-scoped file edits.",
   "author": { "name": "ricardopiresqa" },
   "homepage": "https://github.com/ricardopiresqa/opencode-delegate",
   "repository": "https://github.com/ricardopiresqa/opencode-delegate",

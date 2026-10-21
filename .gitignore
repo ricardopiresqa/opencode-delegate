@@ -4,14 +4,28 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
-# local delegation state
+# local delegation state (cooldowns, pauses, attempts log) — never commit
 .opencode-delegate/
 cooldown.json
 .delegate-cooldown.json
+attempts.jsonl
+delegate-attempts.jsonl
+*.tmp
+
+# probe outputs and DAG runs are machine-local
+delegate-probe*.json
+.delegate-dag/
 
 # opencode writes plugin logs into the cwd
 .logs/
+
+# secrets
+.env
+.env.*
 
 # editor / OS
 .DS_Store

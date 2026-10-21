@@ -1,6 +1,6 @@
 ---
 description: Delegate a low-complexity task to a free opencode model (auto-fallback)
-argument-hint: "[--apply] zen|openkilo|cline|pi <task…>"
+argument-hint: "[--apply] zen|openkilo|kilo|cline|pi|clixad <task…>"
 ---
 
 Parse the arguments below. If the first token is `--apply`, drop it and set
@@ -12,7 +12,7 @@ Arguments: $ARGUMENTS
 
 Call the `mcp__opencode-delegate__delegate` tool with:
 
-- `group` — the group token (must be one of `zen`, `openkilo`, `cline`, `pi`)
+- `group` — the group token (one of `zen`, `openkilo`, `cline`, `pi`, `clixad`; aliases `kilo` and `opencode`)
 - `prompt` — the rest of the arguments, phrased as a single self-contained
   instruction
 - `apply` — `true` only if `--apply` was given; then also pass `cwd` if the

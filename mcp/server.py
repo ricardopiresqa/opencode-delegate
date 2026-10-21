@@ -47,10 +47,11 @@ TOOLS = [
             "properties": {
                 "group": {
                     "type": "string",
-                    "enum": ["zen", "openkilo", "cline", "pi"],
+                    "enum": ["zen", "cline", "pi", "openkilo", "kilo", "clixad"],
                     "description": (
                         "Provider group. zen=OpenCode Zen native, "
-                        "openkilo=OpenKilo, cline=Cline recommended, pi=Pi free."
+                        "openkilo (alias kilo)=OpenKilo, cline=Cline free, pi=Pi free, "
+                        "clixad=Clixad via an optional local gateway (provider 'thoth')."
                     ),
                 },
                 "prompt": {
@@ -103,7 +104,7 @@ TOOLS = [
             "properties": {
                 "group": {
                     "type": "string",
-                    "enum": ["zen", "openkilo", "cline", "pi"],
+                    "enum": ["zen", "cline", "pi", "openkilo", "kilo", "clixad"],
                     "description": "Restrict to one group. Omit for all.",
                 }
             },
